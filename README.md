@@ -8,7 +8,7 @@ The current code is a naive port of what was originally there, adjusted for ling
 
 This is a Python script that can rebuild the database certain iPod shuffles without iTunes or any Apple software.  It requires Python 3 on the host system and not much more.  It also allows you to keep whatever directory structure you like for your music library instead of packing all your files into directories with nonsensical names and no strategy of organization.
 
-This software works *only* on first and second generation shuffles.  If you have a newer player, consider looking at [https://github.com/nims11/IPod-Shuffle-4g](Nimesh Ghelani's similar script) .
+This software works *only* on first and second generation shuffles.  If you have a newer player, consider looking at [Nimesh Ghelani's similar script](https://github.com/nims11/IPod-Shuffle-4g).
 
 ### Usage:
 This is the easy part:
