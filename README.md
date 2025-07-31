@@ -16,6 +16,8 @@ This is the easy part:
    1. Copy *3build_db.py* to the root directory of your iPod shuffle
    1. Run it.
 
-The software should now crawl the filesystem on the device and index the music in the database.  It works for me, but the new port especially is not yet well-tested.  It may well break something which requires an iPod to be reset.  **Please do not use this without understanding the risk.**
+The software should now crawl the filesystem on the device and index the music in the database.  It works for me, but the new port especially is not yet well-tested.  It may well break something which requires an iPod to be reset.  
+
+**Please do not use this without understanding the risk.**
 
 
