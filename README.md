@@ -1,6 +1,8 @@
 ## iPod shuffle Database Builder
 
-This was originally by Martin Fiedler, written maybe twenty years ago for use with Python 2.  The old Python 2 version is still available in his [SourceForge repo](http://shuffle-db.sourceforge.net).  Python 2 is getting very difficult to find in modern Linux distributions, and it seems apprppriate for somebody to do something to bring this software into the modern age.  
+This was originally by Martin Fiedler, written maybe twenty years ago for use with Python 2.  The old Python 2 version is still available in his [SourceForge repo](http://shuffle-db.sourceforge.net).  Python 2 is getting very difficult to find in modern Linux distributions, and it seems apprppriate for somebody to do something to bring this software into the modern age.
+
+&nbsp;&nbsp;&nbsp;&nbsp;***"Anar. Nányë Andúril I né Narsil i macil Elendilo. Lercuvantan i móli Mordórëo. Isil."***
 
 The current code is a naive port of what was originally there, adjusted for linguistic differences to the extent necessary to make it function (I think) correctly on a current system, but it may eventually see future enhancements and bug fixes or even partial rewrites.  The initial version is basically the last release of Martin's program, v1.0-rc1 without any enhancements, but it's different enough that you should consider it to be the start of a new fork, in an earlier stage of development.
 
