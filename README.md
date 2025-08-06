@@ -4,7 +4,7 @@ This was originally by Martin Fiedler, written maybe twenty years ago for use wi
 
 &nbsp;&nbsp;&nbsp;&nbsp;***"Anar. Nányë Andúril I né Narsil i macil Elendilo. Lercuvantan i móli Mordórëo. Isil."***
 
-The current code is a naive port of what was originally there, adjusted for linguistic differences to the extent necessary to make it function (I think) correctly on a current system with Python 3, but it may eventually see future enhancements and bug fixes or even partial rewrites.  The initial version is basically the last release of Martin's program, v1.0-rc1 without any enhancements, but it's different enough that you should consider it to be the start of a new fork, in an earlier stage of development.
+The current code is a naive port of what was originally there, adjusted for linguistic differences to the extent necessary to make it function (I think) correctly on a current system with Python 3, but it may eventually see future enhancements and bug fixes or even partial rewrites.  The initial revision is basically the last release of Martin's program, *rebuild_db.py* v1.0-rc1, without any enhancements, but it's different enough that you should consider it to be the start of a new fork, in an earlier stage of development.  In any case, what's here is almost certainly not well-worn enough to be a release candidate for a 1.0 version.
 
 ### To the point:
 
@@ -21,5 +21,6 @@ This is the easy part:
 The software should now crawl the filesystem on the device and index the music in the database.  It works for me, but the new port especially is not yet well-tested.  It may well break something which requires an iPod to be reset.  
 
 **Please do not use this without understanding the risk.**
+
 
 
