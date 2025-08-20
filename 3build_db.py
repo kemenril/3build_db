@@ -25,7 +25,7 @@ __author__="Chris Smith, from code by Martin Fiedler"
 """
 
 import sys,os,os.path,array,getopt,random,types,fnmatch,operator,string
-from functools import cmp_to_key,reduce
+from functools import reduce
 
 KnownProps=('filename','size','ignore','type','shuffle','reuse','bookmark')
 Rules=[
@@ -41,6 +41,7 @@ Rules=[
 
 Options={
   "volume":None,
+  "dump":False,
   "interactive":False,
   "smart":True,
   "home":True,
@@ -53,6 +54,9 @@ domains=[]
 total_count=0
 KnownEntries={}
 
+#Apparently, this is what the empty headers for the iTunesSD database look like
+iTSD_main_empty     = [0,0,0,1,6,0,0,0,18]+[0]*9
+iTSD_entry_empty    = [0,2,46,90,165,1]+[0]*20+[100,0,0,1,0,2,0]
 
 ################################################################################
 
@@ -226,34 +230,6 @@ def write_to_db(filename):
   return 1
 
 
-def make_key(s):
-  if not s: return s
-  s=s.lower()
-  for i in range(len(s)):
-    if s[i].isdigit(): break
-  if not s[i].isdigit(): return s
-  for j in range(i,len(s)):
-    if not s[j].isdigit(): break
-  if s[j].isdigit(): j+=1
-  return (s[:i],int(s[i:j]),make_key(s[j:]))
-
-def key_repr(x):
-  if type(x)==tuple:
-    return "%s%d%s"%(x[0],x[1],key_repr(x[2]))
-  else:
-    return x
-
-def cmp_key(a,b):
-  #We need the tuples to be converted some something we can sort.
-  elemA = [key_repr(x) if type(x) == tuple else x for x in a]
-  elemB = [key_repr(x) if type(x) == tuple else x for x in b]
-
-  if type(a)==tuple and type(b)==tuple:
-    return (elemA[0]>elemB[0]) or (elemA[1]>elemB[1]) or cmp_key(a[2],b[2])
-  else:
-    return key_repr(a)>key_repr(b)
-
-
 def file_entry(path,name,prefix=""):
   if not(name) or name[0]==".": return None
   fullname="%s/%s"%(path,name)
@@ -263,10 +239,10 @@ def file_entry(path,name,prefix=""):
       return None
     if os.path.isdir(fullname):
       if may_rename: name=rename_safely(path,name)
-      return (0,make_key(name),prefix+name)
+      return (0,prefix+name)
     if os.path.splitext(name)[1].lower() in (".mp3",".m4a",".m4b",".m4p",".aa",".wav"):
       if may_rename: name=rename_safely(path,name)
-      return (1,make_key(name),prefix+name)
+      return (1,prefix+name)
   except OSError:
     pass
   return None
@@ -300,7 +276,7 @@ def browse(path, interactive):
     return
 
   if path=="./iPod_Control/Music":
-    subdirs=[x[2] for x in files if not x[0]]
+    subdirs=[x[1] for x in files if not x[0]]
     files=list(filter(lambda x: x[0], files))
     for dir in subdirs:
       subpath="%s/%s"%(path,dir)
@@ -309,14 +285,16 @@ def browse(path, interactive):
       except OSError:
         pass
 
-  files = sorted(files,key=cmp_to_key(cmp_key))
+  #Probably doesn't need sorted.  I definitely haven't seen any reason to
+  # rely on the old-style sorting method in particular.
+  files = sorted(files,key=lambda x: x[1].lower())
 
   count=len([None for x in files if x[0]])
   if count: domains.append([])
 
   real_count=0
   for item in files:
-    fullname="%s/%s"%(path,item[2])
+    fullname="%s/%s"%(path,item[1])
     if item[0]:
       real_count+=write_to_db(fullname[1:])
     else:
@@ -440,6 +418,102 @@ def make_shuffle(count):
   log("OK.")
   return 1
 
+#Print the fields in iTSD in a reasonable way:
+def iTSD_show_header(h):
+    songs       = int.from_bytes(h[0:3],byteorder='big')
+    iTunesID    = "0x{:06x}".format(int.from_bytes(h[3:6],byteorder='big'))
+    hSize       = int.from_bytes(h[6:9],byteorder='big')
+    padding     = "0x{:018x}".format(int.from_bytes(h[9:18],byteorder='big'))
+    return("iTSD Header.\n"
+            "\tHeader size: {hSize} bytes.  Padding block: {padding}\n"
+            "\tiTunes release token: {iTunesID}\n"
+            "\t{songs} songs.\n".format(**locals()))
+
+#Print an entry from the iTSD:
+def iTSD_show_entry(e):
+    outStr = "-".join('' for s in range(40)) + "\n"
+    #Unofficially, the type table kind of looks like this
+    typeList     = ['Unknown','MP3','AAC','Unknown','WAV']
+
+    #The clock is a little weird:
+    tick = 32/125   # Seconds.
+
+    eSize        = int.from_bytes(e[0:3],byteorder='big')
+    u1           = int.from_bytes(e[3:6],byteorder='big')
+    tStart       = int.from_bytes(e[6:9],byteorder='big')
+    u2           = int.from_bytes(e[9:12],byteorder='big')
+    u3           = int.from_bytes(e[12:15],byteorder='big')
+    tStop        = int.from_bytes(e[15:18],byteorder='big')
+    u4           = int.from_bytes(e[18:21],byteorder='big')
+    u5           = int.from_bytes(e[21:24],byteorder='big')
+    volume       = int.from_bytes(e[24:27],byteorder='big')
+    fType        = int.from_bytes(e[27:30],byteorder='big')
+    u6           = int.from_bytes(e[30:33],byteorder='big')
+    fName        = e[33:555].decode("utf-8").strip('\x00')
+    fName        = "".join([ltr for ltr in list(fName) if ltr != '\x00'])
+    shuffle      = e[555]
+    bookmarkAble = e[556]
+    u7           = e[557]
+
+    for field in [tStart, tStop]:
+        field = str(tick*field) + "seconds."
+    volume="".join(["0x{:06x}".format(volume)," (",str(volume-100),"%)"])
+    
+    fType = "".join(["0x{:06x}".format(fType)," (",typeList[fType],")"])
+    shuffle = "In shuffle" if shuffle else "Not in shuffle"
+    bookmarkAble = "Bookmarkable" if bookmarkAble else "Not bookmarkable"
+
+    outStr += ("File:\n"
+            "\t{fName}\nType: \n\t{fType}\n\n"
+            "\tStart: {tStart} seconds\tStop: {tStop} seconds\t\tVolume: {volume}\n"
+            "\t{bookmarkAble}\t{shuffle}\t\t"
+            "Record size: {eSize} bytes\n\n".format(**locals()))
+    outStr += "Unknown fields:\n"
+    for row in [["u1", "u2", "u3", "u4"], ["u5", "u6", "u7"]]:
+        outStr += "\t"
+        for field in row:
+            outStr += field.upper() + ": " + "0x{:06x}".format(locals()[field]) + "\t"
+        outStr += "\n"
+    outStr += "\n"
+    return outStr
+
+
+#Read the iTSD information from the database.
+def load_itsd():
+    global header, KnownEntries
+    header=array.array('B')
+    #In every other case, we just build new headers
+    if Options['reuse'] or Options['dump']:
+        try:
+            with open("iPod_Control/iTunes/iTunesSD","rb") as iTunesSD:
+                header.fromfile(iTunesSD,51)
+                if Options['dump']: print(iTSD_show_header(header))
+                iTunesSD.seek(18)
+                entry=iTunesSD.read(558)
+                while len(entry)==558:
+                    filename=entry[33::2].split(b"\0",1)[0]
+                    KnownEntries[filename]=entry
+                    if Options['dump']: print(iTSD_show_entry(KnownEntries[filename]))
+                    entry=iTunesSD.read(558)
+        except (IOError,EOFError):
+            pass
+    if Options['dump']:
+        sys.exit(0)
+
+    if len(header)==51:
+        log("Found complete iTunesSD headers in existing database.")
+        if KnownEntries:
+            log("Collected %d entries from existing database."%len(KnownEntries))
+    else:
+        del header[18:]
+        if len(header)==18:
+            log("Using existing main iTunesSD header.")
+        else:
+            log("iTunesSD main headers not found.  Will build them from scratch.")
+            header.fromlist(iTSD_main_empty)
+        log("iTunesSD entry headers not found.  Will build them from scratch.")
+        header.fromlist(iTSD_entry_empty)
+    log()
 
 ################################################################################
 
@@ -463,38 +537,8 @@ Please make sure that:
  (*) the iPod was correctly initialized with iTunes""")
     sys.exit(1)
 
-  header=array.array('B')
-  iTunesSD=None
-  try:
-    iTunesSD=open("iPod_Control/iTunes/iTunesSD","rb")
-    header.fromfile(iTunesSD,51)
-    if Options['reuse']:
-      iTunesSD.seek(18)
-      entry=iTunesSD.read(558)
-      while len(entry)==558:
-        filename=entry[33::2].split(b"\0",1)[0]
-        KnownEntries[filename]=entry
-        entry=iTunesSD.read(558)
-  except (IOError,EOFError):
-    pass
-  if iTunesSD: iTunesSD.close()
+  load_itsd()
 
-  if len(header)==51:
-    log("Using iTunesSD headers from existing database.")
-    if KnownEntries:
-      log("Collected %d entries from existing database."%len(KnownEntries))
-  else:
-    del header[18:]
-    if len(header)==18:
-      log("Using iTunesSD main header from existing database.")
-    else:
-      del header[:]
-      log("Rebuilding iTunesSD main header from scratch.")
-      header.fromlist([0,0,0,1,6,0,0,0,18]+[0]*9)
-    log("Rebuilding iTunesSD entry header from scratch.")
-    header.fromlist([0,2,46,90,165,1]+[0]*20+[100,0,0,1,0,2,0])
-
-  log()
   try:
     iTunesSD=open("iPod_Control/iTunes/iTunesSD","wb")
     header[:18].tofile(iTunesSD)
@@ -545,6 +589,7 @@ def help():
 
 Mandatory arguments to long options are mandatory for short options too.
   -h, --help         display this help text
+  -d, --dump         Dump the current iTunesSD headers; do not rebuild anything.
   -i, --interactive  prompt before browsing each directory
   -v, --volume=VOL   set playback volume to a value between 0 and 38
   -s, --nosmart      do not use smart shuffle
@@ -564,8 +609,8 @@ def opterr(msg):
 
 def parse_options():
   try:
-    opts,args=getopt.getopt(sys.argv[1:],"hiv:snlfL:r",\
-              ["help","interactive","volume=","nosmart","nochdir","nolog","force","logfile=","rename"])
+    opts,args=getopt.getopt(sys.argv[1:],"hdiv:snlfL:r",\
+              ["help","dump","interactive","volume=","nosmart","nochdir","nolog","force","logfile=","rename"])
   except (getopt.GetoptError, message):
     opterr(message)
   for opt,arg in opts:
@@ -579,6 +624,8 @@ def parse_options():
         Options['volume']=int(arg)
       except ValueError:
         opterr("invalid volume")
+    elif opt in ("-d","--dump"):
+      Options['dump']=True
     elif opt in ("-s","--nosmart"):
       Options['smart']=False
     elif opt in ("-n","--nochdir"):
